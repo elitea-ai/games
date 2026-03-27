@@ -34,6 +34,8 @@ body{height:100%;height:100dvh;overflow:hidden;font-family:'Press Start 2P',mono
 .diff-btn:active{transform:scale(.95)}
 .start-btn{font-family:inherit;font-size:10px;padding:12px 24px;background:linear-gradient(180deg,#00e5ff,#0091ea);border:none;border-radius:6px;color:#000;cursor:pointer;font-weight:bold;text-shadow:none;box-shadow:0 0 20px rgba(0,229,255,.4);margin-top:4px}
 .start-btn:active{transform:scale(.95);opacity:.9}
+.exit-btn{font-family:inherit;font-size:8px;padding:8px 16px;background:none;border:1px solid #444;border-radius:6px;color:#666;cursor:pointer;margin-top:4px;text-decoration:none}
+.exit-btn:active{background:#222;color:#aaa}
 @media(max-width:700px){.top-bar .stat-value{font-size:12px}}
 </style>
 </head>
@@ -64,10 +66,12 @@ body{height:100%;height:100dvh;overflow:hidden;font-family:'Press Start 2P',mono
         <h2>GAME OVER</h2>
         <div class="final-score" id="final-score"></div>
         <button class="start-btn" id="restart-btn">CONTINUE?</button>
+        <a class="exit-btn" href="../">EXIT</a>
       </div>
       <div class="overlay hidden" id="pause-overlay">
         <h2>PAUSED</h2>
         <button class="start-btn" id="resume-btn">RESUME</button>
+        <a class="exit-btn" href="../">EXIT</a>
       </div>
     </div>
   </div>
