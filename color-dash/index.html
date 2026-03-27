@@ -27,7 +27,7 @@ canvas{display:block;width:100%;height:100%}
 <canvas id="c"></canvas>
 <div class="overlay" id="start-overlay">
   <h2>🔺 COLOR DASH</h2>
-  <div class="subtitle">Match your color to pass through barriers<br>Swipe left/right to move · Tap to change color<br>Speed = multiplier</div>
+  <div class="subtitle">Drag to move · Second finger tap to change color</div>
   <button class="start-btn" id="start-btn">PLAY</button>
   <a class="exit-btn" href="../">EXIT</a>
 </div>
@@ -47,9 +47,9 @@ const ctx=canvas.getContext('2d');
 let W,H,dpr;
 
 // Colors for the triangle and barriers
-const PALETTE=['#00e5ff','#ff2d78','#69f0ae','#ffd600'];
-const PALETTE_DARK=['#006680','#80163c','#348057','#806b00'];
-const COLOR_NAMES=['cyan','pink','green','yellow'];
+const PALETTE=['#00e5ff','#ff2d78','#69f0ae'];
+const PALETTE_DARK=['#006680','#80163c','#348057'];
+const COLOR_NAMES=['cyan','pink','green'];
 
 // Game state
 let gameState='idle';
@@ -206,7 +206,7 @@ function drawHUD(){
   // Color indicator - small triangles showing current and next
   const indY=H-40;
   for(let i=0;i<PALETTE.length;i++){
-    const ix=W/2+(i-1.5)*30;
+    const ix=W/2+(i-1)*30;
     const isActive=i===playerColorIdx;
     drawTriangle(ix,indY,i,0,isActive?0.6:0.35);
     if(isActive){
@@ -391,32 +391,47 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-// Controls — touch
-let tStartX,tStartY,tMoved,tStartTime;
+// Controls — touch (multitouch: first finger moves, second finger tap = cycle color)
+let moveTouchId=null,moveLastX=0;
 document.addEventListener('touchstart',e=>{
   if(e.target.closest('.overlay'))return;
   e.preventDefault();
-  const t=e.touches[0];
-  tStartX=t.clientX;tStartY=t.clientY;tMoved=false;tStartTime=Date.now();
+  if(gameState!=='playing')return;
+  for(const t of e.changedTouches){
+    if(moveTouchId===null){
+      // First finger — movement
+      moveTouchId=t.identifier;
+      moveLastX=t.clientX;
+    } else {
+      // Second+ finger — cycle color
+      cycleColor();
+    }
+  }
 },{passive:false});
 document.addEventListener('touchmove',e=>{
   if(e.target.closest('.overlay'))return;
   e.preventDefault();
   if(gameState!=='playing')return;
-  const t=e.touches[0];
-  const dx=t.clientX-tStartX;
-  if(Math.abs(dx)>12){
-    playerX=Math.max(20,Math.min(W-20,playerX+dx*0.4));
-    tStartX=t.clientX;tMoved=true;
+  for(const t of e.changedTouches){
+    if(t.identifier===moveTouchId){
+      const dx=t.clientX-moveLastX;
+      if(Math.abs(dx)>4){
+        playerX=Math.max(20,Math.min(W-20,playerX+dx*0.5));
+        moveLastX=t.clientX;
+      }
+    }
   }
 },{passive:false});
 document.addEventListener('touchend',e=>{
   if(e.target.closest('.overlay'))return;
   e.preventDefault();
-  if(gameState!=='playing')return;
-  const dt=Date.now()-tStartTime;
-  if(!tMoved&&dt<300){
-    cycleColor();
+  for(const t of e.changedTouches){
+    if(t.identifier===moveTouchId)moveTouchId=null;
+  }
+},{passive:false});
+document.addEventListener('touchcancel',e=>{
+  for(const t of e.changedTouches){
+    if(t.identifier===moveTouchId)moveTouchId=null;
   }
 },{passive:false});
 document.body.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
