@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELITEA Games</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0a0a1a;color:#e0e0e0;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+.header{text-align:center;padding:3rem 1rem 2rem}
+.header h1{font-size:2.5rem;background:linear-gradient(135deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.5rem}
+.header p{color:#888;font-size:1.1rem}
+.games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem;padding:1rem 2rem;max-width:1200px;width:100%}
+.game-card{background:#14142a;border:1px solid #2a2a4a;border-radius:16px;padding:2rem;text-decoration:none;color:inherit;transition:all .2s ease;cursor:pointer;position:relative;overflow:hidden}
+.game-card:hover{transform:translateY(-4px);border-color:#7b2ff7;box-shadow:0 8px 30px rgba(123,47,247,.2)}
+.game-card .emoji{font-size:3rem;margin-bottom:1rem;display:block}
+.game-card h2{font-size:1.3rem;margin-bottom:.5rem;color:#fff}
+.game-card p{color:#888;font-size:.9rem;line-height:1.5}
+.game-card .tags{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.game-card .tag{background:#1e1e3a;border:1px solid #2a2a4a;border-radius:20px;padding:.2rem .7rem;font-size:.75rem;color:#aaa}
+.footer{margin-top:auto;padding:2rem;text-align:center;color:#444;font-size:.85rem}
+.footer a{color:#7b2ff7;text-decoration:none}
+@media(max-width:600px){.header h1{font-size:1.8rem}.games-grid{padding:1rem}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🎮 ELITEA Games</h1>
+  <p>Browser games — no install, no backend, just play</p>
+</div>
+<div class="games-grid">
+  <a href="tetris/" class="game-card">
+    <span class="emoji">🧱</span>
+    <h2>Tetris</h2>
+    <p>Classic block-stacking puzzle. Clear lines, level up, survive as long as you can.</p>
+    <div class="tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Classic</span>
+      <span class="tag">Mobile</span>
+    </div>
+  </a>
+</div>
+<div class="footer">
+  <p>Built by <a href="https://github.com/elitea-ai">ELITEA</a> • Pure HTML/CSS/JS • Open Source</p>
+</div>
+</body>
+</html>
