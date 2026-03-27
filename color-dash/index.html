@@ -46,12 +46,10 @@ const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
 let W,H,dpr;
 
-// Colors for the triangle and barriers
 const PALETTE=['#00e5ff','#ff2d78','#69f0ae'];
 const PALETTE_DARK=['#006680','#80163c','#348057'];
 const COLOR_NAMES=['cyan','pink','green'];
 
-// Game state
 let gameState='idle';
 let playerX,playerColorIdx,playerAngle;
 let barriers=[];
@@ -59,9 +57,9 @@ let stars=[];
 let particles=[];
 let score,distance,highScore,speedMultiplier;
 let lastTime,scrollSpeed,baseSpeed;
-let cameraY; // how far we've scrolled
+let cameraY;
+let lives,invulnTime;
 
-// Sizing
 function resize(){
   dpr=window.devicePixelRatio||1;
   W=window.innerWidth;H=window.innerHeight;
@@ -71,7 +69,6 @@ function resize(){
 window.addEventListener('resize',resize);
 resize();
 
-// Stars background
 function initStars(){
   stars=[];
   for(let i=0;i<80;i++){
@@ -79,14 +76,12 @@ function initStars(){
   }
 }
 
-// Triangle player
 const TRI_SIZE=18;
 function drawTriangle(x,y,colorIdx,angle,scale=1){
   const s=TRI_SIZE*scale;
   ctx.save();
   ctx.translate(x,y);
   ctx.rotate(angle);
-  // Glow
   ctx.shadowColor=PALETTE[colorIdx];
   ctx.shadowBlur=15*scale;
   ctx.fillStyle=PALETTE[colorIdx];
@@ -96,7 +91,6 @@ function drawTriangle(x,y,colorIdx,angle,scale=1){
   ctx.lineTo(s*0.7,s*0.6);
   ctx.closePath();
   ctx.fill();
-  // Inner lighter triangle
   ctx.shadowBlur=0;
   ctx.fillStyle='rgba(255,255,255,0.15)';
   ctx.beginPath();
@@ -108,13 +102,11 @@ function drawTriangle(x,y,colorIdx,angle,scale=1){
   ctx.restore();
 }
 
-// Barriers
 function makeBarrier(worldY){
   const colorIdx=Math.floor(Math.random()*PALETTE.length);
-  // Barrier is a thick diagonal line across the screen
-  const angle=(Math.random()-0.5)*0.8; // slight angle
-  const gapX=Math.random()*(W*0.4)+W*0.3; // gap position
-  const gapW=55+Math.random()*25; // gap width
+  const angle=(Math.random()-0.5)*0.8;
+  const gapX=Math.random()*(W*0.4)+W*0.3;
+  const gapW=55+Math.random()*25;
   return{worldY,colorIdx,angle,gapX,gapW};
 }
 
@@ -123,19 +115,14 @@ function drawBarrier(b,screenY){
   ctx.save();
   ctx.translate(W/2,screenY);
   ctx.rotate(b.angle);
-  // Draw line with gap
   const lineW=W*1.8;
   const thick=22;
-  // Glow
   ctx.shadowColor=col;
   ctx.shadowBlur=20;
   ctx.fillStyle=col;
-  // Left part
   ctx.fillRect(-lineW/2,-thick/2,lineW/2-b.gapW/2+(b.gapX-W/2),thick);
-  // Right part
   const rightStart=b.gapX-W/2+b.gapW/2;
   ctx.fillRect(rightStart,-thick/2,lineW/2-rightStart,thick);
-  // Particles along the line
   ctx.shadowBlur=0;
   ctx.fillStyle=col;
   const dotCount=12;
@@ -150,20 +137,17 @@ function drawBarrier(b,screenY){
 }
 
 function barrierHitTest(b,px,py,screenY){
-  // Transform player position to barrier local space
   const dx=px-W/2,dy=py-screenY;
   const cos=Math.cos(-b.angle),sin=Math.sin(-b.angle);
   const lx=dx*cos-dy*sin;
   const ly=dx*sin+dy*cos;
   const thick=22;
-  if(Math.abs(ly)>thick/2+TRI_SIZE*0.4)return null; // not touching
-  // Check if in gap
+  if(Math.abs(ly)>thick/2+TRI_SIZE*0.4)return null;
   const gapLocalX=b.gapX-W/2;
-  if(lx>gapLocalX-b.gapW/2&&lx<gapLocalX+b.gapW/2)return null; // in gap
-  return b.colorIdx; // hitting the barrier, return its color
+  if(lx>gapLocalX-b.gapW/2&&lx<gapLocalX+b.gapW/2)return null;
+  return b.colorIdx;
 }
 
-// Particles
 function spawnParticles(x,y,color,count){
   for(let i=0;i<count;i++){
     particles.push({
@@ -190,20 +174,27 @@ function drawParticles(){
   ctx.globalAlpha=1;
 }
 
-// HUD
 function drawHUD(){
-  // Score
   ctx.fillStyle='#ffd600';
   ctx.shadowColor='#ffd600';ctx.shadowBlur=10;
   ctx.font='20px "Press Start 2P"';
   ctx.textAlign='center';
   ctx.fillText(score,W/2,50);
   ctx.shadowBlur=0;
-  // Multiplier
   ctx.fillStyle='#888';
   ctx.font='8px "Press Start 2P"';
   ctx.fillText('x'+speedMultiplier.toFixed(1),W/2,68);
-  // Color indicator - small triangles showing current and next
+  // Lives
+  ctx.font='14px sans-serif';
+  ctx.textAlign='left';
+  ctx.shadowColor='#ff2d78';ctx.shadowBlur=6;
+  ctx.fillStyle='#ff2d78';
+  for(let i=0;i<lives;i++){ctx.fillText('\u2764',14+i*22,48);}
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#333';
+  for(let i=lives;i<3;i++){ctx.fillText('\u2764',14+i*22,48);}
+  ctx.textAlign='center';
+  // Color indicator
   const indY=H-40;
   for(let i=0;i<PALETTE.length;i++){
     const ix=W/2+(i-1)*30;
@@ -216,15 +207,12 @@ function drawHUD(){
   }
 }
 
-// Background
 function drawBG(){
-  // Dark blue gradient
   const g=ctx.createLinearGradient(0,0,0,H);
   g.addColorStop(0,'#141830');
   g.addColorStop(1,'#0c1020');
   ctx.fillStyle=g;
   ctx.fillRect(0,0,W,H);
-  // Stars
   for(const s of stars){
     s.y+=s.sp*scrollSpeed*0.02;
     if(s.y>H){s.y=0;s.x=Math.random()*W}
@@ -235,7 +223,6 @@ function drawBG(){
   ctx.globalAlpha=1;
 }
 
-// Trail behind player
 let trail=[];
 function updateTrail(){
   trail.push({x:playerX,y:H*0.75,a:1,color:PALETTE[playerColorIdx]});
@@ -252,7 +239,6 @@ function drawTrail(){
   ctx.globalAlpha=1;
 }
 
-// Game init
 function initGame(){
   playerX=W/2;
   playerColorIdx=0;
@@ -266,8 +252,9 @@ function initGame(){
   baseSpeed=120;
   scrollSpeed=baseSpeed;
   speedMultiplier=1.0;
+  lives=3;
+  invulnTime=0;
   lastTime=performance.now();
-  // Pre-generate barriers
   for(let i=0;i<15;i++){
     barriers.push(makeBarrier(-(200+i*220)));
   }
@@ -275,7 +262,6 @@ function initGame(){
   highScore=+(localStorage.getItem('colordash_hi')||0);
 }
 
-// Player Y on screen is fixed
 const PLAYER_SCREEN_Y=0.75;
 
 function gameLoop(time){
@@ -283,32 +269,26 @@ function gameLoop(time){
   const dt=Math.min((time-lastTime)/1000,0.05);
   lastTime=time;
 
-  // Increase speed over time
   speedMultiplier=1+distance/3000;
   scrollSpeed=baseSpeed*speedMultiplier;
 
-  // Move camera (player moves "up")
   const scrollDelta=scrollSpeed*dt;
   cameraY-=scrollDelta;
   distance+=scrollDelta;
   score=Math.floor(distance*speedMultiplier*0.1);
 
-  // Animate player angle (gentle wobble)
   playerAngle=Math.sin(time*0.003)*0.1;
 
   updateTrail();
   updateParticles(dt);
 
-  // Check & generate barriers
   const topWorldY=cameraY;
   const botWorldY=cameraY+H;
-  // Remove passed barriers
   for(let i=barriers.length-1;i>=0;i--){
     if(barriers[i].worldY>botWorldY+100){
       barriers.splice(i,1);
     }
   }
-  // Generate new ones ahead
   let minY=0;
   for(const b of barriers)if(b.worldY<minY)minY=b.worldY;
   while(minY>topWorldY-400){
@@ -318,37 +298,42 @@ function gameLoop(time){
 
   // Collision detection
   const pScreenY=H*PLAYER_SCREEN_Y;
+  if(invulnTime>0)invulnTime-=dt;
   for(const b of barriers){
     const screenY=b.worldY-cameraY;
     if(screenY<-100||screenY>H+100)continue;
     const hitColor=barrierHitTest(b,playerX,pScreenY,screenY);
     if(hitColor!==null){
       if(hitColor===playerColorIdx){
-        // Pass through! Bonus particles
         spawnParticles(playerX,pScreenY,PALETTE[playerColorIdx],8);
-        // Remove this barrier
         barriers.splice(barriers.indexOf(b),1);
         score+=100*Math.floor(speedMultiplier);
         break;
-      } else {
-        // Wrong color — GAME OVER
-        spawnParticles(playerX,pScreenY,'#ff0000',30);
-        gameOver();
-        return;
+      } else if(invulnTime<=0){
+        lives--;
+        spawnParticles(playerX,pScreenY,'#ff0000',20);
+        barriers.splice(barriers.indexOf(b),1);
+        invulnTime=1.5;
+        if(lives<=0){
+          spawnParticles(playerX,pScreenY,'#ff0000',30);
+          gameOver();
+          return;
+        }
+        break;
       }
     }
   }
 
-  // Draw
   drawBG();
-  // Barriers
   for(const b of barriers){
     const screenY=b.worldY-cameraY;
     if(screenY<-200||screenY>H+200)continue;
     drawBarrier(b,screenY);
   }
   drawTrail();
-  drawTriangle(playerX,pScreenY,playerColorIdx,playerAngle);
+  if(invulnTime<=0||Math.floor(time/80)%2===0){
+    drawTriangle(playerX,pScreenY,playerColorIdx,playerAngle);
+  }
   drawParticles();
   drawHUD();
 
@@ -361,7 +346,6 @@ function gameOver(){
   document.getElementById('final-score').textContent='SCORE: '+score;
   document.getElementById('high-score').textContent='BEST: '+highScore;
   document.getElementById('gameover-overlay').classList.remove('hidden');
-  // Draw one more frame with particles
   drawBG();
   for(const b of barriers){const sy=b.worldY-cameraY;if(sy>-200&&sy<H+200)drawBarrier(b,sy)}
   drawParticles();
@@ -381,7 +365,6 @@ function cycleColor(){
   spawnParticles(playerX,H*PLAYER_SCREEN_Y,PALETTE[playerColorIdx],5);
 }
 
-// Controls — keyboard
 document.addEventListener('keydown',e=>{
   if(gameState!=='playing')return;
   switch(e.key){
@@ -391,7 +374,6 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-// Controls — touch (multitouch: first finger moves, second finger tap = cycle color)
 let moveTouchId=null,moveLastX=0;
 document.addEventListener('touchstart',e=>{
   if(e.target.closest('.overlay'))return;
@@ -399,11 +381,9 @@ document.addEventListener('touchstart',e=>{
   if(gameState!=='playing')return;
   for(const t of e.changedTouches){
     if(moveTouchId===null){
-      // First finger — movement
       moveTouchId=t.identifier;
       moveLastX=t.clientX;
     } else {
-      // Second+ finger — cycle color
       cycleColor();
     }
   }
@@ -436,11 +416,9 @@ document.addEventListener('touchcancel',e=>{
 },{passive:false});
 document.body.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 
-// Buttons
 document.getElementById('start-btn').addEventListener('click',startGame);
 document.getElementById('restart-btn').addEventListener('click',startGame);
 
-// Initial draw
 resize();initStars();
 (function idleDraw(){
   if(gameState!=='idle'&&gameState!=='over')return;
