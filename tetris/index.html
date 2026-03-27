@@ -34,13 +34,6 @@ body{height:100%;height:100dvh;overflow:hidden;font-family:'Press Start 2P',mono
 .diff-btn:active{transform:scale(.95)}
 .start-btn{font-family:inherit;font-size:10px;padding:12px 24px;background:linear-gradient(180deg,#00e5ff,#0091ea);border:none;border-radius:6px;color:#000;cursor:pointer;font-weight:bold;text-shadow:none;box-shadow:0 0 20px rgba(0,229,255,.4);margin-top:4px}
 .start-btn:active{transform:scale(.95);opacity:.9}
-.controls{flex-shrink:0;padding:8px 12px 12px;background:#0d0d0d;border-top:2px solid #222;display:flex;flex-direction:column;gap:6px;align-items:center}
-.ctrl-row{display:flex;gap:8px;justify-content:center}
-.ctrl-btn{width:60px;height:50px;border-radius:10px;background:#1a1a2e;border:2px solid #2a2a4a;color:#888;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .1s}
-.ctrl-btn:active{background:#2a1a4a;border-color:#7b2ff7;color:#fff;transform:scale(.93)}
-.ctrl-btn.wide{width:132px;font-family:'Press Start 2P',monospace;font-size:9px;color:#ff0;letter-spacing:1px}
-.ctrl-btn.rotate-btn{width:56px;height:44px;font-size:18px;border-color:#444}
-@media(min-width:701px){.controls{display:none}.app{justify-content:center;align-items:center}}
 @media(max-width:700px){.top-bar .stat-value{font-size:12px}}
 </style>
 </head>
@@ -65,7 +58,7 @@ body{height:100%;height:100dvh;overflow:hidden;font-family:'Press Start 2P',mono
           <button class="diff-btn" data-level="15">INSANE<br><span style="font-size:6px;color:#666">LVL 15</span></button>
         </div>
         <button class="start-btn" id="start-btn">INSERT COIN</button>
-        <div class="subtitle">Swipe or use buttons to play</div>
+        <div class="subtitle">Swipe to play · Tap to rotate</div>
       </div>
       <div class="overlay hidden" id="gameover-overlay">
         <h2>GAME OVER</h2>
@@ -77,15 +70,6 @@ body{height:100%;height:100dvh;overflow:hidden;font-family:'Press Start 2P',mono
         <button class="start-btn" id="resume-btn">RESUME</button>
       </div>
     </div>
-  </div>
-  <div class="controls" id="touch-controls">
-    <div class="ctrl-row"><div class="ctrl-btn rotate-btn" data-action="rotate">↻</div></div>
-    <div class="ctrl-row">
-      <div class="ctrl-btn" data-action="left">◀</div>
-      <div class="ctrl-btn" data-action="down">▼</div>
-      <div class="ctrl-btn" data-action="right">▶</div>
-    </div>
-    <div class="ctrl-row"><div class="ctrl-btn wide" data-action="drop">DROP</div></div>
   </div>
 </div>
 <script>
@@ -252,16 +236,6 @@ document.addEventListener('keydown',e=>{
     case'ArrowDown':case's':moveDown();break;case'ArrowUp':case'w':tryRotate(current);break;
     case' ':hardDrop();break;case'Escape':case'p':togglePause();break;
   }draw();
-});
-document.querySelectorAll('.ctrl-btn').forEach(btn=>{
-  const action=btn.dataset.action;
-  const handler=e=>{e.preventDefault();e.stopPropagation();
-    if(gameState!=='playing')return;
-    switch(action){case'left':moveLeft();break;case'right':moveRight();break;case'down':moveDown();break;case'rotate':tryRotate(current);break;case'drop':hardDrop();break}
-    draw();
-  };
-  btn.addEventListener('touchstart',handler,{passive:false});
-  btn.addEventListener('mousedown',handler);
 });
 let tStartX,tStartY,tLastX,tLastY,tMoved,tStartTime;
 const SWIPE_THRESH=18,MOVE_STEP=18;
