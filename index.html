@@ -2,46 +2,52 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ELITEA Games</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ELITEA Arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0a0a1a;color:#e0e0e0;min-height:100vh;display:flex;flex-direction:column;align-items:center}
-.header{text-align:center;padding:3rem 1rem 2rem}
-.header h1{font-size:2.5rem;background:linear-gradient(135deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.5rem}
-.header p{color:#888;font-size:1.1rem}
-.games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem;padding:1rem 2rem;max-width:1200px;width:100%}
-.game-card{background:#14142a;border:1px solid #2a2a4a;border-radius:16px;padding:2rem;text-decoration:none;color:inherit;transition:all .2s ease;cursor:pointer;position:relative;overflow:hidden}
-.game-card:hover{transform:translateY(-4px);border-color:#7b2ff7;box-shadow:0 8px 30px rgba(123,47,247,.2)}
-.game-card .emoji{font-size:3rem;margin-bottom:1rem;display:block}
-.game-card h2{font-size:1.3rem;margin-bottom:.5rem;color:#fff}
-.game-card p{color:#888;font-size:.9rem;line-height:1.5}
-.game-card .tags{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
-.game-card .tag{background:#1e1e3a;border:1px solid #2a2a4a;border-radius:20px;padding:.2rem .7rem;font-size:.75rem;color:#aaa}
-.footer{margin-top:auto;padding:2rem;text-align:center;color:#444;font-size:.85rem}
+body{font-family:'Press Start 2P',monospace;background:#0a0a0a;color:#e0e0e0;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 0%,#1a0a2e 0%,#0a0a0a 70%);z-index:-1}
+.marquee{text-align:center;padding:2.5rem 1rem 1.5rem;position:relative}
+.marquee h1{font-size:1.8rem;color:#ff0;text-shadow:0 0 10px #ff0,0 0 30px #ff0,0 0 60px #ff8800;animation:flicker 3s infinite alternate}
+.marquee .sub{font-size:.55rem;color:#0ff;margin-top:.8rem;text-shadow:0 0 8px #0ff;letter-spacing:2px}
+@keyframes flicker{0%,93%,95%,97%,100%{opacity:1}94%,96%{opacity:.85}}
+.neon-line{height:2px;background:linear-gradient(90deg,transparent,#ff00ff,#0ff,#ff00ff,transparent);margin:0 auto;max-width:600px;box-shadow:0 0 8px #ff00ff}
+.arcade-floor{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1.5rem;padding:2rem 1.5rem;max-width:1100px;margin:0 auto}
+.cabinet{background:linear-gradient(180deg,#1a1a2e 0%,#12121e 100%);border:2px solid #2a2a4a;border-radius:12px;padding:0;overflow:hidden;text-decoration:none;color:inherit;transition:all .25s;position:relative;cursor:pointer;display:block}
+.cabinet:hover{transform:translateY(-6px) scale(1.02);border-color:#0ff;box-shadow:0 0 20px rgba(0,255,255,.3),0 8px 30px rgba(0,0,0,.5)}
+.cabinet.coming-soon{opacity:.5;pointer-events:none;cursor:default}
+.cabinet.coming-soon:hover{transform:none;border-color:#2a2a4a;box-shadow:none}
+.cab-screen{background:#0e0e1a;margin:12px;border-radius:6px;height:120px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;border:2px solid #1a1a3a;flex-direction:column;gap:4px}
+.cab-screen::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.1) 2px,rgba(0,0,0,.1) 4px);pointer-events:none}
+.cab-screen .emoji{font-size:3rem;filter:drop-shadow(0 0 10px rgba(255,255,255,.3))}
+.cab-screen .coming{font-size:.5rem;color:#555;letter-spacing:2px}
+.cabinet.tetris .cab-screen{box-shadow:inset 0 0 20px rgba(0,229,255,.15)}
+.cabinet.snake .cab-screen{box-shadow:inset 0 0 20px rgba(105,240,174,.15)}
+.cabinet.pacman .cab-screen{box-shadow:inset 0 0 20px rgba(255,214,0,.15)}
+.cabinet.space .cab-screen{box-shadow:inset 0 0 20px rgba(255,82,82,.15)}
+.cab-info{padding:.8rem 1rem 1rem}
+.cab-info h2{font-size:.7rem;margin-bottom:.4rem;color:#fff}
+.cab-info p{font-size:.45rem;color:#888;line-height:1.8}
+.cab-info .tags{margin-top:.6rem;display:flex;gap:.4rem;flex-wrap:wrap}
+.cab-info .tag{font-size:.4rem;background:#1e1e3a;border:1px solid #2a2a4a;border-radius:20px;padding:3px 8px;color:#888}
+.cab-info .tag.play{background:#0a2a2a;border-color:#0ff;color:#0ff}
+.footer{text-align:center;padding:2rem 1rem;font-size:.4rem;color:#333}
 .footer a{color:#7b2ff7;text-decoration:none}
-@media(max-width:600px){.header h1{font-size:1.8rem}.games-grid{padding:1rem}}
+@media(max-width:600px){.marquee h1{font-size:1.2rem}.arcade-floor{padding:1rem;gap:1rem}.cab-screen{height:90px}}
 </style>
 </head>
 <body>
-<div class="header">
-  <h1>🎮 ELITEA Games</h1>
-  <p>Browser games — no install, no backend, just play</p>
+<div class="marquee"><h1>🕹️ ELITEA ARCADE</h1><div class="sub">SELECT YOUR GAME</div></div>
+<div class="neon-line"></div>
+<div class="arcade-floor">
+  <a href="tetris/" class="cabinet tetris"><div class="cab-screen"><span class="emoji">🧱</span></div><div class="cab-info"><h2>TETRIS</h2><p>Stack blocks. Clear lines. Survive.</p><div class="tags"><span class="tag play">▶ PLAY</span><span class="tag">Puzzle</span><span class="tag">Mobile</span></div></div></a>
+  <div class="cabinet snake coming-soon"><div class="cab-screen"><span class="emoji">🐍</span><br><span class="coming">COMING SOON</span></div><div class="cab-info"><h2>SNAKE</h2><p>Eat. Grow. Don't bite yourself.</p><div class="tags"><span class="tag">Classic</span><span class="tag">Mobile</span></div></div></div>
+  <div class="cabinet pacman coming-soon"><div class="cab-screen"><span class="emoji">👾</span><br><span class="coming">COMING SOON</span></div><div class="cab-info"><h2>PAC-MAN</h2><p>Chomp dots. Avoid ghosts. Eat fruit.</p><div class="tags"><span class="tag">Arcade</span><span class="tag">Mobile</span></div></div></div>
+  <div class="cabinet space coming-soon"><div class="cab-screen"><span class="emoji">🚀</span><br><span class="coming">COMING SOON</span></div><div class="cab-info"><h2>SPACE INVADERS</h2><p>Defend Earth. Shoot everything.</p><div class="tags"><span class="tag">Shooter</span><span class="tag">Mobile</span></div></div></div>
 </div>
-<div class="games-grid">
-  <a href="tetris/" class="game-card">
-    <span class="emoji">🧱</span>
-    <h2>Tetris</h2>
-    <p>Classic block-stacking puzzle. Clear lines, level up, survive as long as you can.</p>
-    <div class="tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">Classic</span>
-      <span class="tag">Mobile</span>
-    </div>
-  </a>
-</div>
-<div class="footer">
-  <p>Built by <a href="https://github.com/elitea-ai">ELITEA</a> • Pure HTML/CSS/JS • Open Source</p>
-</div>
+<div class="footer"><p>Built by <a href="https://github.com/elitea-ai">ELITEA</a> • Pure HTML/CSS/JS • Open Source</p></div>
 </body>
 </html>
