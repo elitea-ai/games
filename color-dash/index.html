@@ -377,7 +377,7 @@ document.addEventListener('keydown',e=>{
 });
 let moveTouchId=null,moveLastX=0;
 document.addEventListener('touchstart',e=>{
-  if(e.target.closest('.overlay'))return;
+  if(e.target.closest('.overlay')||e.target.closest('#pause-btn'))return;
   e.preventDefault();
   if(gameState!=='playing')return;
   for(const t of e.changedTouches){
@@ -390,7 +390,7 @@ document.addEventListener('touchstart',e=>{
   }
 },{passive:false});
 document.addEventListener('touchmove',e=>{
-  if(e.target.closest('.overlay'))return;
+  if(e.target.closest('.overlay')||e.target.closest('#pause-btn'))return;
   e.preventDefault();
   if(gameState!=='playing')return;
   for(const t of e.changedTouches){
@@ -404,7 +404,7 @@ document.addEventListener('touchmove',e=>{
   }
 },{passive:false});
 document.addEventListener('touchend',e=>{
-  if(e.target.closest('.overlay'))return;
+  if(e.target.closest('.overlay')||e.target.closest('#pause-btn'))return;
   e.preventDefault();
   for(const t of e.changedTouches){
     if(t.identifier===moveTouchId)moveTouchId=null;
