@@ -65,543 +65,515 @@ Power pellets let you eat ghosts!<br>
 </div>
 </div>
 <script>
-const C=document.getElementById('game'),X=C.getContext('2d');
-const TILE=20,COLS=28,ROWS=31;
-C.width=TILE*COLS;C.height=TILE*ROWS;
+// ============================================================
+//  PAC-MAN — strict tile-grid movement (no sub-pixel drift)
+// ============================================================
+const C = document.getElementById('game'), X = C.getContext('2d');
+const T = 20, COLS = 28, ROWS = 31;
+C.width = T * COLS; C.height = T * ROWS;
 
-function scaleCanvas(){
-  const maxW=window.innerWidth-16,maxH=window.innerHeight-140;
-  const s=Math.min(maxW/(TILE*COLS),maxH/(TILE*ROWS),1);
-  C.style.width=(TILE*COLS*s)+'px';
-  C.style.height=(TILE*ROWS*s)+'px';
+function scaleCanvas() {
+  const mw = window.innerWidth - 16, mh = window.innerHeight - 140;
+  const s = Math.min(mw / C.width, mh / C.height, 1);
+  C.style.width = (C.width * s) + 'px';
+  C.style.height = (C.height * s) + 'px';
 }
-scaleCanvas();window.addEventListener('resize',scaleCanvas);
+scaleCanvas(); window.addEventListener('resize', scaleCanvas);
 
-// 0=empty, 1=wall, 2=dot, 3=power pellet, 4=ghost house floor, 5=ghost door
-const MAP_TEMPLATE=[
-"1111111111111111111111111111",
-"1222222222222112222222222221",
-"1211112111112112111121111121",
-"1311112111112112111121111131",
-"1211112111112112111121111121",
-"1222222222222222222222222221",
-"1211112112111111121121111121",
-"1211112112111111121121111121",
-"1222222112222112222122222221",
-"1111112111110110111121111111",
-"0000012111110110111121000000",
-"0000012110000000001121000000",
-"0000012110114411001121000000",
-"1111112110140041001121111111",
-"0000002000140041000020000000",
-"1111112110140041001121111111",
-"0000012110144441001121000000",
-"0000012110000000001121000000",
-"0000012110111111001121000000",
-"1111112110111111001121111111",
-"1222222222222112222222222221",
-"1211112111112112111121111121",
-"1311112111112112111121111131",
-"1222112222222002222222112221",
-"1112112112111111121121121111",
-"1112112112111111121121121111",
-"1222222112222112222122222221",
-"1211111111112112111111111121",
-"1211111111112112111111111121",
-"1222222222222222222222222221",
-"1111111111111111111111111111"
+// --- MAP ---
+// 0=empty 1=wall 2=dot 3=power 4=house-floor 5=ghost-door
+const MAP_SRC = [
+  "1111111111111111111111111111",
+  "1222222222222112222222222221",
+  "1211112111112112111121111121",
+  "1311112111112112111121111131",
+  "1211112111112112111121111121",
+  "1222222222222222222222222221",
+  "1211112112111111121121111121",
+  "1211112112111111121121111121",
+  "1222222112222112222122222221",
+  "1111112111110110111121111111",
+  "0000012111110110111121000000",
+  "0000012110000000001121000000",
+  "0000012110114411001121000000",
+  "1111112110140041001121111111",
+  "0000002000140041000020000000",
+  "1111112110140041001121111111",
+  "0000012110144441001121000000",
+  "0000012110000000001121000000",
+  "0000012110111111001121000000",
+  "1111112110111111001121111111",
+  "1222222222222112222222222221",
+  "1211112111112112111121111121",
+  "1311112111112112111121111131",
+  "1222112222222002222222112221",
+  "1112112112111111121121121111",
+  "1112112112111111121121121111",
+  "1222222112222112222122222221",
+  "1211111111112112111111111121",
+  "1211111111112112111111111121",
+  "1222222222222222222222222221",
+  "1111111111111111111111111111"
 ];
 
-let map,dots,score,lives,level,gameState;
-let pacman,ghosts,frightTimer,frightDuration;
-let dotEatCount,fruitActive,fruitTimer,fruitPos,fruitType;
-let animFrame,ghostEatCombo;
+let map, totalDots, score, lives, level, gameState;
+let pacman, ghosts, frightTimer, frightDur;
+let dotEaten, fruitOn, fruitTimer, ghostCombo;
+let anim = 0;
 
-const GHOST_COLORS=['#FF0000','#FFB8FF','#00FFFF','#FFB852'];
-const FRUITS=['🍒','🍓','🍊','🍎','🍇','🍈','🔔','🔑'];
-const FRUIT_SCORES=[100,300,500,700,1000,2000,3000,5000];
+const UP = 0, RT = 1, DN = 2, LT = 3;
+const DX = [0,1,0,-1], DY = [-1,0,1,0];
+function opp(d) { return (d + 2) % 4; }
 
-const UP=0,RIGHT=1,DOWN=2,LEFT=3,NONE=-1;
-const DX=[0,1,0,-1],DY=[-1,0,1,0];
-
-function opposite(d){return(d+2)%4;}
-
-function initMap(){
-  map=[];dots=0;
-  for(let r=0;r<ROWS;r++){
-    map[r]=[];
-    for(let c=0;c<COLS;c++){
-      let v=parseInt(MAP_TEMPLATE[r][c]);
-      map[r][c]=v;
-      if(v===2||v===3)dots++;
-    }
-  }
-}
-
-function tileAt(c,r){
-  if(r<0||r>=ROWS)return 1;
-  if(c<0||c>=COLS)return 0; // tunnel
+// --- tile helpers ---
+function tile(c, r) {
+  if (r < 0 || r >= ROWS) return 1;
+  if (c < 0 || c >= COLS) return 0;   // tunnel row = open
   return map[r][c];
 }
-
-function isWalkable(c,r){
-  let t=tileAt(c,r);
-  return t!==1&&t!==5;
+function walkable(c, r) {           // for pac-man
+  const t = tile(c, r);
+  return t !== 1 && t !== 5;
 }
-
-function isWalkableGhost(c,r,canUseDoor){
-  if(r<0||r>=ROWS)return false;
-  if(c<0||c>=COLS)return true; // tunnel
-  let t=map[r][c];
-  if(t===1)return false;
-  if(t===5&&!canUseDoor)return false;
+function gwalk(c, r, door) {        // for ghosts
+  if (r < 0 || r >= ROWS) return false;
+  if (c < 0 || c >= COLS) return true; // tunnel
+  const t = map[r][c];
+  if (t === 1) return false;
+  if (t === 5 && !door) return false;
   return true;
 }
 
-function wrapC(c){return((c%COLS)+COLS)%COLS;}
-
-// ==================== TILE-BASED MOVEMENT ====================
-// Entities sit on integer tile coords. Each update tick they move
-// a fractional amount toward the next tile. Direction changes only
-// happen when centered on a tile. This prevents wall clipping.
-
-function initGame(){
-  score=0;lives=3;level=1;gameState='playing';
-  ghostEatCombo=0;
-  initLevel();
-  updateHUD();
+// --- init ---
+function buildMap() {
+  map = []; totalDots = 0;
+  for (let r = 0; r < ROWS; r++) {
+    map[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      const v = +MAP_SRC[r][c];
+      map[r][c] = v;
+      if (v === 2 || v === 3) totalDots++;
+    }
+  }
 }
 
-function initLevel(){
-  initMap();
-  frightTimer=0;
-  frightDuration=Math.max(2000,8000-level*500);
-  dotEatCount=0;fruitActive=false;fruitTimer=0;
-  fruitPos={c:14,r:17};
-  fruitType=Math.min(level-1,FRUITS.length-1);
-  animFrame=0;
+function initGame() {
+  score = 0; lives = 3; level = 1; gameState = 'play';
+  ghostCombo = 0;
+  initLevel(); hud();
+}
 
-  // Pac-man: tile coords + sub-tile progress
-  pacman={
-    tileC:14,tileR:23,
-    pixX:14*TILE+TILE/2,pixY:23*TILE+TILE/2,
-    dir:LEFT,nextDir:LEFT,
-    speed:TILE*4.5, // pixels per second (~4.5 tiles/sec)
-    stopped:false
-  };
+function initLevel() {
+  buildMap();
+  frightTimer = 0;
+  frightDur = Math.max(2000, 8000 - level * 500);
+  dotEaten = 0; fruitOn = false; fruitTimer = 0;
+  anim = 0; ghostCombo = 0;
+  modeTimer = 0; modePhase = 0;
 
-  // Ghosts: tile-based with sub-pixel interpolation
-  ghosts=[
-    makeGhost(14,11,LEFT, 0,'#FF0000',{c:25,r:0},false),
-    makeGhost(14,14,UP,   3000,'#FFB8FF',{c:2,r:0},true),
-    makeGhost(12,14,UP,   6000,'#00FFFF',{c:27,r:31},true),
-    makeGhost(16,14,UP,   Math.max(2000,10000-level*1000),'#FFB852',{c:0,r:31},true)
+  // Pac-man uses integer tile coords + fractional progress [0..1)
+  pacman = { c: 14, r: 23, dir: LT, next: LT, prog: 0 };
+
+  ghosts = [
+    mkGhost(14, 11, LT, 0,    '#FF0000', 25, 0,  false),
+    mkGhost(14, 14, UP, 180,   '#FFB8FF', 2,  0,  true),
+    mkGhost(12, 14, UP, 360,   '#00FFFF', 27, 31, true),
+    mkGhost(16, 14, UP, Math.max(120, 600 - level * 60), '#FFB852', 0, 31, true),
   ];
 }
 
-function makeGhost(c,r,dir,delay,color,scatter,inHouse){
-  return{
-    tileC:c,tileR:r,
-    pixX:c*TILE+TILE/2,pixY:r*TILE+TILE/2,
-    dir:dir,nextTileC:c,nextTileR:r,
-    moving:false,
-    mode:'scatter',
-    startDelay:delay,
-    color:color,
-    scatterTarget:scatter,
-    inHouse:inHouse,
-    frightened:false,
-    eaten:false,
-    speed:TILE*3.5 // pixels per second (~3.5 tiles/sec)
+function mkGhost(c, r, dir, delay, col, sc, sr, inH) {
+  return {
+    c, r, dir, prog: 0, delay,
+    col, scC: sc, scR: sr, inHouse: inH,
+    mode: 'scatter', fright: false, eaten: false
   };
 }
 
-function ghostSpeed(g){
-  if(g.eaten)return TILE*8;
-  if(g.frightened)return TILE*2;
-  return TILE*(3.5+level*0.08); // slight increase per level
+function hud() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('level').textContent = level;
+  let s = ''; for (let i = 0; i < lives; i++) s += '❤️';
+  document.getElementById('lives-display').textContent = s || '💀';
 }
 
-function updateHUD(){
-  document.getElementById('score').textContent=score;
-  document.getElementById('level').textContent=level;
-  let h='';for(let i=0;i<lives;i++)h+='❤️';
-  document.getElementById('lives-display').textContent=h||'💀';
+// ============================================================
+//  MOVEMENT — 100 % tile-locked
+//
+//  Each entity has integer (c,r) = current tile, and prog in [0,1).
+//  prog is how far they've moved toward tile (c+DX[dir], r+DY[dir]).
+//  When prog >= 1, they arrive at the next tile:
+//    - FIRST check if that next tile is walkable
+//    - If yes: c/r update, prog wraps, choose new dir
+//    - If no:  snap back (prog=0), stop
+//  Between ticks they only interpolate visually.
+// ============================================================
+
+// ticks per second for each entity
+function pacSpeed()   { return 7 + level * 0.3; }
+function gSpeed(g)    {
+  if (g.eaten) return 14;
+  if (g.fright) return 4;
+  return 5.5 + level * 0.15;
 }
 
-// ==================== GHOST AI ====================
-function getGhostTarget(ghost,idx){
-  if(ghost.eaten)return{c:14,r:11};
-  if(ghost.frightened)return{c:Math.floor(Math.random()*COLS),r:Math.floor(Math.random()*ROWS)};
-  if(ghost.mode==='scatter')return ghost.scatterTarget;
-
-  let pc=pacman.tileC,pr=pacman.tileR;
-  switch(idx){
-    case 0: return{c:pc,r:pr};
-    case 1: return{c:pc+DX[pacman.dir]*4,r:pr+DY[pacman.dir]*4};
-    case 2:{
-      let ac=pc+DX[pacman.dir]*2,ar=pr+DY[pacman.dir]*2;
-      return{c:ac+(ac-ghosts[0].tileC),r:ar+(ar-ghosts[0].tileR)};
+function movePacman(dt) {
+  const spd = pacSpeed() * dt;
+  // are we at a tile center? (prog === 0)
+  if (pacman.prog === 0) {
+    // try desired direction first
+    let tryDir = pacman.next;
+    let nc = pacman.c + DX[tryDir], nr = pacman.r + DY[tryDir];
+    // tunnel wrap check
+    if (nc < 0) nc = COLS - 1; else if (nc >= COLS) nc = 0;
+    if (walkable(nc, nr)) {
+      pacman.dir = tryDir;
     }
-    case 3:{
-      let d=Math.abs(ghost.tileC-pc)+Math.abs(ghost.tileR-pr);
-      return d>8?{c:pc,r:pr}:ghost.scatterTarget;
+    // can we move in current dir?
+    let fc = pacman.c + DX[pacman.dir], fr = pacman.r + DY[pacman.dir];
+    if (fc < 0) fc = COLS - 1; else if (fc >= COLS) fc = 0;
+    if (!walkable(fc, fr)) {
+      return; // stopped, no movement
     }
   }
-}
-
-function chooseGhostDir(ghost,idx){
-  let target=getGhostTarget(ghost,idx);
-  let bestDir=ghost.dir,bestDist=Infinity;
-  let canDoor=ghost.inHouse||ghost.eaten;
-
-  for(let d=0;d<4;d++){
-    // ghosts can't reverse (unless frightened)
-    if(d===opposite(ghost.dir)&&!ghost.frightened)continue;
-    let nc=ghost.tileC+DX[d],nr=ghost.tileR+DY[d];
-    if(!isWalkableGhost(nc,nr,canDoor))continue;
-    let dc=wrapC(nc)-target.c,dr=nr-target.r;
-    let dist=dc*dc+dr*dr;
-    if(dist<bestDist){bestDist=dist;bestDir=d;}
-  }
-  return bestDir;
-}
-
-function moveEntity(e,dt){
-  let speed=e===pacman?pacman.speed:ghostSpeed(e);
-  let dist=speed*dt/1000;
-  let dx=DX[e.dir],dy=DY[e.dir];
-  let targetX=e.tileC*TILE+TILE/2+dx*TILE;
-  let targetY=e.tileR*TILE+TILE/2+dy*TILE;
-
-  // Move toward next tile
-  let remX=targetX-e.pixX,remY=targetY-e.pixY;
-  let rem=Math.abs(remX)+Math.abs(remY);
-
-  if(dist>=rem){
-    // Arrived at next tile
-    let nc=e.tileC+dx,nr=e.tileR+dy;
-    // Tunnel wrap
-    if(nc<0){nc=COLS-1;e.pixX=(COLS-1)*TILE+TILE/2;targetX=e.pixX;}
-    else if(nc>=COLS){nc=0;e.pixX=TILE/2;targetX=e.pixX;}
-    
-    e.tileC=nc;e.tileR=nr;
-    e.pixX=nc*TILE+TILE/2;
-    e.pixY=nr*TILE+TILE/2;
-    return true; // reached tile center
-  } else {
-    e.pixX+=dx*dist;
-    e.pixY+=dy*dist;
-    return false;
+  pacman.prog += spd;
+  if (pacman.prog >= 1) {
+    // arrive at next tile
+    let nc = pacman.c + DX[pacman.dir];
+    let nr = pacman.r + DY[pacman.dir];
+    // tunnel wrap
+    if (nc < 0) nc = COLS - 1; else if (nc >= COLS) nc = 0;
+    pacman.c = nc; pacman.r = nr;
+    pacman.prog = 0;
+    // consume remaining movement recursively? nah, one tile per arrival is fine
   }
 }
 
-// ==================== MODE TIMER ====================
-let modeTimer=0,modePhase=0;
-const MODE_SCHEDULE=[7000,20000,7000,20000,5000,20000,5000];
-
-function updateModes(dt){
-  if(frightTimer>0){
-    frightTimer-=dt;
-    if(frightTimer<=0){
-      ghosts.forEach(g=>{if(!g.eaten)g.frightened=false;});
-      ghostEatCombo=0;
+function moveGhost(g, idx, dt) {
+  if (g.inHouse) {
+    g.delay -= dt * 60; // countdown in "ticks"
+    if (g.delay <= 0) {
+      g.inHouse = false;
+      g.c = 14; g.r = 11; g.prog = 0; g.dir = LT;
     }
     return;
   }
-  modeTimer+=dt;
-  if(modePhase<MODE_SCHEDULE.length&&modeTimer>=MODE_SCHEDULE[modePhase]){
-    modeTimer=0;modePhase++;
-    let mode=(modePhase%2===0)?'scatter':'chase';
-    ghosts.forEach(g=>{if(!g.eaten&&!g.frightened)g.mode=mode;});
+  const spd = gSpeed(g) * dt;
+
+  if (g.prog === 0) {
+    // choose direction at tile center
+    g.dir = chooseDir(g, idx);
   }
-}
-
-function activateFright(){
-  frightTimer=frightDuration;
-  ghostEatCombo=0;
-  ghosts.forEach(g=>{
-    if(!g.eaten&&!g.inHouse){
-      g.frightened=true;
-      g.dir=opposite(g.dir);
-    }
-  });
-}
-
-// ==================== MAIN LOOP ====================
-let lastTime=0;
-
-function gameLoop(ts){
-  if(!lastTime)lastTime=ts;
-  let dt=Math.min(ts-lastTime,33); // cap at ~30fps worth of sim
-  lastTime=ts;
-  if(gameState==='playing'){
-    update(dt);
-  }
-  draw();
-  requestAnimationFrame(gameLoop);
-}
-
-function update(dt){
-  animFrame+=dt*0.008;
-  updateModes(dt);
-
-  // === PAC-MAN MOVEMENT ===
-  // Try to turn at tile center
-  let atCenter=moveEntity(pacman,dt);
-  if(atCenter){
-    // Try next direction first
-    let nc=pacman.tileC+DX[pacman.nextDir],nr=pacman.tileR+DY[pacman.nextDir];
-    if(isWalkable(nc,nr)){
-      pacman.dir=pacman.nextDir;
-    }
-    // Check if can continue in current dir
-    let fc=pacman.tileC+DX[pacman.dir],fr=pacman.tileR+DY[pacman.dir];
-    if(!isWalkable(fc,fr)){
-      pacman.stopped=true;
-    } else {
-      pacman.stopped=false;
-    }
-  }
-
-  // Eat dots
-  let pr=pacman.tileR,pc=pacman.tileC;
-  if(pc>=0&&pc<COLS&&pr>=0&&pr<ROWS){
-    if(map[pr][pc]===2){map[pr][pc]=0;score+=10;dots--;dotEatCount++;updateHUD();}
-    if(map[pr][pc]===3){map[pr][pc]=0;score+=50;dots--;dotEatCount++;activateFright();updateHUD();}
-  }
-
-  // Fruit
-  if(dotEatCount>=70&&!fruitActive&&fruitTimer===0){fruitActive=true;fruitTimer=10000;}
-  if(fruitActive){
-    fruitTimer-=dt;
-    if(fruitTimer<=0){fruitActive=false;fruitTimer=-1;}
-    if(pacman.tileC===fruitPos.c&&pacman.tileR===fruitPos.r){
-      score+=FRUIT_SCORES[fruitType];fruitActive=false;fruitTimer=-1;updateHUD();
-    }
-  }
-
-  // Level clear
-  if(dots<=0){level++;initLevel();modeTimer=0;modePhase=0;updateHUD();return;}
-
-  // === GHOST MOVEMENT ===
-  ghosts.forEach((g,idx)=>{
-    if(g.inHouse){
-      g.startDelay-=dt;
-      if(g.startDelay<=0){
-        g.inHouse=false;
-        g.tileC=14;g.tileR=11;
-        g.pixX=14*TILE+TILE/2;g.pixY=11*TILE+TILE/2;
-        g.dir=LEFT;
-      }
+  g.prog += spd;
+  if (g.prog >= 1) {
+    let nc = g.c + DX[g.dir], nr = g.r + DY[g.dir];
+    // tunnel
+    if (nc < 0) nc = COLS - 1; else if (nc >= COLS) nc = 0;
+    const canDoor = g.eaten;
+    if (!gwalk(nc, nr, canDoor)) {
+      // shouldn't happen if chooseDir is correct, but safety:
+      g.prog = 0;
       return;
     }
+    g.c = nc; g.r = nr; g.prog = 0;
 
-    let arrived=moveEntity(g,dt);
-    if(arrived){
-      // Tunnel wrap already handled in moveEntity
-      // Check if eaten ghost reached home
-      if(g.eaten&&g.tileC===14&&g.tileR===11){
-        g.eaten=false;g.frightened=false;g.dir=LEFT;
-        return;
-      }
-      // Choose new direction
-      g.dir=chooseGhostDir(g,idx);
-      
-      // Check if next tile is walkable, if not stay
-      let nc=g.tileC+DX[g.dir],nr=g.tileR+DY[g.dir];
-      let canDoor=g.inHouse||g.eaten;
-      if(!isWalkableGhost(nc,nr,canDoor)){
-        // stuck - try any direction
-        for(let d=0;d<4;d++){
-          let tc=g.tileC+DX[d],tr=g.tileR+DY[d];
-          if(isWalkableGhost(tc,tr,canDoor)){g.dir=d;break;}
-        }
-      }
+    // eaten ghost arrived home?
+    if (g.eaten && g.c === 14 && g.r === 11) {
+      g.eaten = false; g.fright = false;
+    }
+  }
+}
+
+// --- Ghost AI ---
+function target(g, idx) {
+  if (g.eaten) return [14, 11];
+  if (g.fright) return [~~(Math.random() * COLS), ~~(Math.random() * ROWS)];
+  if (g.mode === 'scatter') return [g.scC, g.scR];
+  const pc = pacman.c, pr = pacman.r;
+  switch (idx) {
+    case 0: return [pc, pr];
+    case 1: return [pc + DX[pacman.dir] * 4, pr + DY[pacman.dir] * 4];
+    case 2: {
+      const ac = pc + DX[pacman.dir] * 2, ar = pr + DY[pacman.dir] * 2;
+      return [ac + (ac - ghosts[0].c), ar + (ar - ghosts[0].r)];
+    }
+    case 3: {
+      const d = Math.abs(g.c - pc) + Math.abs(g.r - pr);
+      return d > 8 ? [pc, pr] : [g.scC, g.scR];
+    }
+  }
+}
+
+function chooseDir(g, idx) {
+  const [tc, tr] = target(g, idx);
+  const canDoor = g.eaten;
+  let best = g.dir, bestD = 1e9;
+  // priority: UP, LT, DN, RT (classic pac-man tie-break)
+  const order = [UP, LT, DN, RT];
+  for (const d of order) {
+    if (d === opp(g.dir) && !g.fright) continue; // no reverse
+    let nc = g.c + DX[d], nr = g.r + DY[d];
+    if (nc < 0) nc = COLS - 1; else if (nc >= COLS) nc = 0;
+    if (!gwalk(nc, nr, canDoor)) continue;
+    const dist = (nc - tc) ** 2 + (nr - tr) ** 2;
+    if (dist < bestD) { bestD = dist; best = d; }
+  }
+  return best;
+}
+
+// --- mode switching ---
+let modeTimer = 0, modePhase = 0;
+const MODES = [7000, 20000, 7000, 20000, 5000, 20000, 5000];
+
+function updateModes(dtMs) {
+  if (frightTimer > 0) {
+    frightTimer -= dtMs;
+    if (frightTimer <= 0) {
+      ghosts.forEach(g => { if (!g.eaten) g.fright = false; });
+      ghostCombo = 0;
+    }
+    return;
+  }
+  modeTimer += dtMs;
+  if (modePhase < MODES.length && modeTimer >= MODES[modePhase]) {
+    modeTimer = 0; modePhase++;
+    const m = (modePhase % 2 === 0) ? 'scatter' : 'chase';
+    ghosts.forEach(g => { if (!g.eaten && !g.fright) g.mode = m; });
+  }
+}
+
+function activateFright() {
+  frightTimer = frightDur; ghostCombo = 0;
+  ghosts.forEach(g => {
+    if (!g.eaten && !g.inHouse) {
+      g.fright = true;
+      g.dir = opp(g.dir);
+      g.prog = 1 - g.prog; // reverse progress
     }
   });
+}
 
-  // === COLLISION CHECK ===
-  ghosts.forEach(g=>{
-    if(g.inHouse)return;
-    let dist=Math.abs(g.pixX-pacman.pixX)+Math.abs(g.pixY-pacman.pixY);
-    if(dist<TILE*0.8){
-      if(g.frightened&&!g.eaten){
-        g.eaten=true;g.frightened=false;
-        ghostEatCombo++;
-        score+=200*Math.pow(2,ghostEatCombo-1);
-        updateHUD();
-      } else if(!g.eaten){
-        lives--;updateHUD();
-        if(lives<=0){
-          gameState='gameover';
-          showOverlay('GAME OVER','Final Score: '+score,true);
-        } else {
-          resetPositions();
-        }
+// ============================================================
+//  pixel position for rendering (derived from tile + prog)
+// ============================================================
+function px(e) {
+  const bx = e.c * T + T / 2, by = e.r * T + T / 2;
+  return { x: bx + DX[e.dir] * e.prog * T, y: by + DY[e.dir] * e.prog * T };
+}
+
+// ============================================================
+//  GAME LOOP
+// ============================================================
+let lastT = 0;
+
+function loop(ts) {
+  if (!lastT) lastT = ts;
+  let dtMs = Math.min(ts - lastT, 40); // cap 25fps minimum
+  lastT = ts;
+  if (gameState === 'play') update(dtMs);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update(dtMs) {
+  const dt = dtMs / 1000; // seconds
+  anim += dtMs * 0.008;
+  updateModes(dtMs);
+
+  // -- pac-man --
+  movePacman(dt);
+
+  // eat dots
+  const { c: pc, r: pr } = pacman;
+  if (pc >= 0 && pc < COLS && pr >= 0 && pr < ROWS) {
+    if (map[pr][pc] === 2) { map[pr][pc] = 0; score += 10; totalDots--; dotEaten++; hud(); }
+    else if (map[pr][pc] === 3) { map[pr][pc] = 0; score += 50; totalDots--; dotEaten++; activateFright(); hud(); }
+  }
+
+  // fruit
+  if (dotEaten >= 70 && !fruitOn && fruitTimer === 0) { fruitOn = true; fruitTimer = 10000; }
+  if (fruitOn) {
+    fruitTimer -= dtMs;
+    if (fruitTimer <= 0) { fruitOn = false; fruitTimer = -1; }
+    if (pc === 14 && pr === 17) {
+      const fi = Math.min(level - 1, 7);
+      score += [100,300,500,700,1000,2000,3000,5000][fi];
+      fruitOn = false; fruitTimer = -1; hud();
+    }
+  }
+
+  // level clear
+  if (totalDots <= 0) { level++; initLevel(); hud(); return; }
+
+  // -- ghosts --
+  ghosts.forEach((g, i) => moveGhost(g, i, dt));
+
+  // -- collisions (tile-distance based) --
+  const pp = px(pacman);
+  ghosts.forEach(g => {
+    if (g.inHouse) return;
+    const gp = px(g);
+    const d = Math.abs(gp.x - pp.x) + Math.abs(gp.y - pp.y);
+    if (d < T * 0.75) {
+      if (g.fright && !g.eaten) {
+        g.eaten = true; g.fright = false; ghostCombo++;
+        score += 200 * (2 ** (ghostCombo - 1)); hud();
+      } else if (!g.eaten) {
+        lives--; hud();
+        if (lives <= 0) {
+          gameState = 'over';
+          showOverlay('GAME OVER', 'Final Score: ' + score, true);
+        } else resetPos();
       }
     }
   });
 }
 
-function resetPositions(){
-  pacman.tileC=14;pacman.tileR=23;
-  pacman.pixX=14*TILE+TILE/2;pacman.pixY=23*TILE+TILE/2;
-  pacman.dir=LEFT;pacman.nextDir=LEFT;pacman.stopped=false;
-
-  let startC=[14,14,12,16],startR=[11,14,14,14];
-  let delays=[0,3000,6000,9000];
-  ghosts.forEach((g,i)=>{
-    g.tileC=startC[i];g.tileR=startR[i];
-    g.pixX=startC[i]*TILE+TILE/2;g.pixY=startR[i]*TILE+TILE/2;
-    g.dir=i===0?LEFT:UP;
-    g.inHouse=i>0;g.frightened=false;g.eaten=false;
-    g.startDelay=delays[i];
+function resetPos() {
+  pacman.c = 14; pacman.r = 23; pacman.dir = LT; pacman.next = LT; pacman.prog = 0;
+  const sc = [14,14,12,16], sr = [11,14,14,14], sd = [0,180,360,540];
+  ghosts.forEach((g, i) => {
+    g.c = sc[i]; g.r = sr[i]; g.prog = 0;
+    g.dir = i === 0 ? LT : UP;
+    g.inHouse = i > 0; g.fright = false; g.eaten = false;
+    g.delay = sd[i];
   });
-  frightTimer=0;
+  frightTimer = 0;
 }
 
-// ==================== DRAWING ====================
-function draw(){
-  X.fillStyle='#000';X.fillRect(0,0,C.width,C.height);
+// ============================================================
+//  DRAWING
+// ============================================================
+const FRUITS = ['🍒','🍓','🍊','🍎','🍇','🍈','🔔','🔑'];
 
-  // Map
-  for(let r=0;r<ROWS;r++){
-    for(let c=0;c<COLS;c++){
-      let v=map[r][c];
-      let px=c*TILE,py=r*TILE;
-      if(v===1){
-        X.fillStyle='#1a1aff';
-        X.fillRect(px+1,py+1,TILE-2,TILE-2);
-        X.fillStyle='#2828ff';
-        X.fillRect(px+2,py+2,TILE-4,1);
-      } else if(v===5){
-        X.fillStyle='#ffb8ff';
-        X.fillRect(px+2,py+TILE/2-1,TILE-4,3);
-      } else if(v===2){
-        X.fillStyle='#ffb8ae';
-        X.beginPath();X.arc(px+TILE/2,py+TILE/2,2.5,0,Math.PI*2);X.fill();
-      } else if(v===3){
-        let pulse=0.8+Math.sin(animFrame*0.4)*0.2;
-        X.fillStyle='#ffb8ae';
-        X.beginPath();X.arc(px+TILE/2,py+TILE/2,5*pulse,0,Math.PI*2);X.fill();
-      }
+function draw() {
+  X.fillStyle = '#000'; X.fillRect(0, 0, C.width, C.height);
+
+  // map
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const v = map[r][c], bx = c * T, by = r * T;
+    if (v === 1) {
+      X.fillStyle = '#1a1aff';
+      X.fillRect(bx + 1, by + 1, T - 2, T - 2);
+      X.fillStyle = '#2828ff';
+      X.fillRect(bx + 2, by + 2, T - 4, 1);
+    } else if (v === 5) {
+      X.fillStyle = '#ffb8ff';
+      X.fillRect(bx + 2, by + T / 2 - 1, T - 4, 3);
+    } else if (v === 2) {
+      X.fillStyle = '#ffb8ae';
+      X.beginPath(); X.arc(bx + T/2, by + T/2, 2.5, 0, Math.PI*2); X.fill();
+    } else if (v === 3) {
+      const p = 0.8 + Math.sin(anim * 0.4) * 0.2;
+      X.fillStyle = '#ffb8ae';
+      X.beginPath(); X.arc(bx + T/2, by + T/2, 5 * p, 0, Math.PI*2); X.fill();
     }
   }
 
-  // Fruit
-  if(fruitActive){
-    X.font='16px serif';X.textAlign='center';X.textBaseline='middle';
-    X.fillText(FRUITS[fruitType],fruitPos.c*TILE+TILE/2,fruitPos.r*TILE+TILE/2);
+  // fruit
+  if (fruitOn) {
+    const fi = Math.min(level - 1, 7);
+    X.font = '16px serif'; X.textAlign = 'center'; X.textBaseline = 'middle';
+    X.fillText(FRUITS[fi], 14 * T + T/2, 17 * T + T/2);
   }
 
-  // Pac-Man
-  let mouth=0.15+Math.abs(Math.sin(animFrame*0.6))*0.35;
-  let angles=[Math.PI*1.5,0,Math.PI*0.5,Math.PI]; // UP,RIGHT,DOWN,LEFT
-  let ang=angles[pacman.dir];
-  X.fillStyle='#FFD700';
+  // pac-man
+  const pp = px(pacman);
+  const mouth = 0.15 + Math.abs(Math.sin(anim * 0.6)) * 0.35;
+  const ang = [Math.PI*1.5, 0, Math.PI*0.5, Math.PI][pacman.dir];
+  X.fillStyle = '#FFD700';
   X.beginPath();
-  X.arc(pacman.pixX,pacman.pixY,TILE/2-1,ang+mouth,ang+Math.PI*2-mouth);
-  X.lineTo(pacman.pixX,pacman.pixY);
-  X.fill();
-  // Eye
-  let ea=ang-0.5;
-  X.fillStyle='#000';
-  X.beginPath();X.arc(pacman.pixX+Math.cos(ea)*4,pacman.pixY+Math.sin(ea)*4,1.5,0,Math.PI*2);X.fill();
+  X.arc(pp.x, pp.y, T/2 - 1, ang + mouth, ang + Math.PI*2 - mouth);
+  X.lineTo(pp.x, pp.y); X.fill();
+  X.fillStyle = '#000';
+  X.beginPath(); X.arc(pp.x + Math.cos(ang - 0.5) * 4, pp.y + Math.sin(ang - 0.5) * 4, 1.5, 0, Math.PI*2); X.fill();
 
-  // Ghosts
-  ghosts.forEach(g=>{
-    if(g.inHouse&&g.startDelay>0)return;
-    let gx=g.pixX,gy=g.pixY;
-    let color=g.eaten?'rgba(255,255,255,0.2)':
-      g.frightened?(frightTimer<2000&&Math.floor(animFrame*3)%2?'#fff':'#2121ff'):g.color;
+  // ghosts
+  ghosts.forEach(g => {
+    if (g.inHouse && g.delay > 0) return;
+    const gp = px(g);
+    const col = g.eaten ? 'rgba(255,255,255,0.2)' :
+      g.fright ? (frightTimer < 2000 && ~~(anim*3)%2 ? '#fff' : '#2121ff') : g.col;
 
-    // Body
-    X.fillStyle=color;
+    X.fillStyle = col;
     X.beginPath();
-    X.arc(gx,gy-2,TILE/2-2,Math.PI,0);
-    X.lineTo(gx+TILE/2-2,gy+TILE/2-2);
-    let waveOff=Math.sin(animFrame*2)*2;
-    for(let i=0;i<=3;i++){
-      let wx=gx+TILE/2-2-i*(TILE-4)/3;
-      let wy=gy+TILE/2-2+(i%2===0?waveOff:-waveOff);
-      X.lineTo(wx,wy);
+    X.arc(gp.x, gp.y - 2, T/2 - 2, Math.PI, 0);
+    X.lineTo(gp.x + T/2 - 2, gp.y + T/2 - 2);
+    const w = Math.sin(anim * 2) * 2;
+    for (let i = 0; i <= 3; i++) {
+      X.lineTo(gp.x + T/2 - 2 - i * (T-4)/3, gp.y + T/2 - 2 + (i%2===0?w:-w));
     }
     X.fill();
 
-    // Eyes
-    [-3,3].forEach(ox=>{
-      X.fillStyle='#fff';
-      X.beginPath();X.ellipse(gx+ox,gy-3,3,3.5,0,0,Math.PI*2);X.fill();
-      if(!g.frightened||g.eaten){
-        X.fillStyle='#00f';
-        X.beginPath();X.arc(gx+ox+DX[g.dir]*1.5,gy-3+DY[g.dir]*1.5,1.5,0,Math.PI*2);X.fill();
+    [-3, 3].forEach(ox => {
+      X.fillStyle = '#fff';
+      X.beginPath(); X.ellipse(gp.x + ox, gp.y - 3, 3, 3.5, 0, 0, Math.PI*2); X.fill();
+      if (!g.fright || g.eaten) {
+        X.fillStyle = '#00f';
+        X.beginPath(); X.arc(gp.x + ox + DX[g.dir]*1.5, gp.y - 3 + DY[g.dir]*1.5, 1.5, 0, Math.PI*2); X.fill();
       }
     });
-    // Frightened mouth
-    if(g.frightened&&!g.eaten){
-      X.strokeStyle='#fff';X.lineWidth=1;
-      X.beginPath();
-      for(let i=-4;i<=4;i++){
-        let sx=gx+i*1.2,sy=gy+2+(i%2?-1:1);
-        i===-4?X.moveTo(sx,sy):X.lineTo(sx,sy);
-      }
+    if (g.fright && !g.eaten) {
+      X.strokeStyle = '#fff'; X.lineWidth = 1; X.beginPath();
+      for (let i = -4; i <= 4; i++) { const sx = gp.x+i*1.2, sy = gp.y+2+(i%2?-1:1); i===-4?X.moveTo(sx,sy):X.lineTo(sx,sy); }
       X.stroke();
     }
   });
 }
 
-function showOverlay(title,sub,isGameOver){
-  let o=document.getElementById('overlay');
+// ============================================================
+//  UI
+// ============================================================
+function showOverlay(t, s, go) {
+  const o = document.getElementById('overlay');
   o.classList.remove('hidden');
-  o.querySelector('h1').textContent=title;
-  o.querySelector('h2').textContent=sub||'';
-  document.getElementById('startBtn').textContent=isGameOver?'PLAY AGAIN':'START GAME';
+  o.querySelector('h1').textContent = t;
+  o.querySelector('h2').textContent = s || '';
+  document.getElementById('startBtn').textContent = go ? 'PLAY AGAIN' : 'START GAME';
 }
 
-// ==================== INPUT ====================
-function setDir(d){pacman.nextDir=d;}
+// ============================================================
+//  INPUT
+// ============================================================
+function setDir(d) { pacman.next = d; }
 
-document.addEventListener('keydown',e=>{
-  switch(e.key){
-    case'ArrowUp':case'w':case'W':setDir(UP);e.preventDefault();break;
-    case'ArrowDown':case's':case'S':setDir(DOWN);e.preventDefault();break;
-    case'ArrowLeft':case'a':case'A':setDir(LEFT);e.preventDefault();break;
-    case'ArrowRight':case'd':case'D':setDir(RIGHT);e.preventDefault();break;
+document.addEventListener('keydown', e => {
+  switch (e.key) {
+    case 'ArrowUp': case 'w': case 'W': setDir(UP); e.preventDefault(); break;
+    case 'ArrowDown': case 's': case 'S': setDir(DN); e.preventDefault(); break;
+    case 'ArrowLeft': case 'a': case 'A': setDir(LT); e.preventDefault(); break;
+    case 'ArrowRight': case 'd': case 'D': setDir(RT); e.preventDefault(); break;
   }
 });
 
-// Touch: responsive swipe with low threshold
-let touchX=0,touchY=0;
-document.addEventListener('touchstart',e=>{
-  touchX=e.touches[0].clientX;touchY=e.touches[0].clientY;
-},{passive:true});
-document.addEventListener('touchmove',e=>{
-  let dx=e.touches[0].clientX-touchX,dy=e.touches[0].clientY-touchY;
-  if(Math.abs(dx)+Math.abs(dy)>10){ // low threshold for responsiveness
-    if(Math.abs(dx)>Math.abs(dy)){setDir(dx>0?RIGHT:LEFT);}
-    else{setDir(dy>0?DOWN:UP);}
-    touchX=e.touches[0].clientX;touchY=e.touches[0].clientY;
+// Touch — low threshold, listens on whole document
+let tx = 0, ty = 0;
+document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+document.addEventListener('touchmove', e => {
+  const dx = e.touches[0].clientX - tx, dy = e.touches[0].clientY - ty;
+  if (Math.abs(dx) + Math.abs(dy) > 8) {
+    if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? RT : LT);
+    else setDir(dy > 0 ? DN : UP);
+    tx = e.touches[0].clientX; ty = e.touches[0].clientY;
   }
   e.preventDefault();
-},{passive:false});
+}, { passive: false });
 
-// D-pad buttons
-const btnMap={up:UP,down:DOWN,left:LEFT,right:RIGHT};
-Object.entries(btnMap).forEach(([name,dir])=>{
-  let btn=document.getElementById('btn-'+name);
-  if(btn){
-    btn.addEventListener('touchstart',e=>{setDir(dir);e.preventDefault();},{passive:false});
-    btn.addEventListener('mousedown',()=>setDir(dir));
+// D-pad
+const bmap = { up: UP, down: DN, left: LT, right: RT };
+Object.entries(bmap).forEach(([n, d]) => {
+  const b = document.getElementById('btn-' + n);
+  if (b) {
+    b.addEventListener('touchstart', e => { setDir(d); e.preventDefault(); }, { passive: false });
+    b.addEventListener('mousedown', () => setDir(d));
   }
 });
 
-// ==================== START ====================
-document.getElementById('startBtn').addEventListener('click',()=>{
+// Start button
+document.getElementById('startBtn').addEventListener('click', () => {
   document.getElementById('overlay').classList.add('hidden');
-  initGame();
-  lastTime=0;modeTimer=0;modePhase=0;
-  requestAnimationFrame(gameLoop);
+  initGame(); lastT = 0;
+  requestAnimationFrame(loop);
 });
 </script>
 </body>
